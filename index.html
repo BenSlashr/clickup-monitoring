@@ -200,7 +200,7 @@
 <div class="header">
   <div>
     <h1>Slashr - Performance Consultants</h1>
-    <div class="subtitle">Dashboard analytique - Temps estimes ClickUp</div>
+    <div class="subtitle">Dashboard analytique - Temps estimés ClickUp</div>
   </div>
   <div class="filters">
     <div class="filter-group">
@@ -210,9 +210,9 @@
       </select>
     </div>
     <div class="filter-group">
-      <label>Categorie</label>
+      <label>Catégorie</label>
       <select id="filterCategory">
-        <option value="">Toutes les categories</option>
+        <option value="">Toutes les catégories</option>
       </select>
     </div>
     <div class="filter-group">
@@ -243,37 +243,37 @@
   <!-- Tabs -->
   <div class="tabs" id="tabBar">
     <button class="tab-btn active" data-tab="overview">Vue d'ensemble</button>
-    <button class="tab-btn" data-tab="categories">Categories</button>
+    <button class="tab-btn" data-tab="categories">Catégories</button>
     <button class="tab-btn" data-tab="projects">Projets</button>
     <button class="tab-btn" data-tab="timeline">Timeline</button>
-    <button class="tab-btn" data-tab="detail">Detail taches</button>
+    <button class="tab-btn" data-tab="detail">Détail tâches</button>
   </div>
 
   <!-- TAB: Overview -->
   <div id="panel-overview" class="tab-panel active">
     <div class="charts-grid">
       <div class="chart-card">
-        <h3>Repartition par categorie (temps estime)</h3>
+        <h3>Répartition par catégorie (temps estimé)</h3>
         <div class="chart-container h300"><canvas id="chartCategories"></canvas></div>
       </div>
       <div class="chart-card">
-        <h3>Heures estimees par mois</h3>
+        <h3>Heures estimées par mois</h3>
         <div class="chart-container h300"><canvas id="chartMonthly"></canvas></div>
       </div>
     </div>
     <div class="charts-grid">
       <div class="chart-card full">
-        <h3>Categories par mois</h3>
+        <h3>Catégories par mois</h3>
         <div class="chart-container h400"><canvas id="chartCategoryMonthly"></canvas></div>
       </div>
     </div>
     <div class="charts-grid">
       <div class="chart-card">
-        <h3>Repartition par projet (temps estime)</h3>
+        <h3>Répartition par projet (temps estimé)</h3>
         <div class="chart-container h300"><canvas id="chartProjects"></canvas></div>
       </div>
       <div class="chart-card">
-        <h3>Estime vs Tracke par mois</h3>
+        <h3>Estimé vs Tracké par mois</h3>
         <div class="chart-container h300"><canvas id="chartEstVsTracked"></canvas></div>
       </div>
     </div>
@@ -282,16 +282,16 @@
   <!-- TAB: Categories -->
   <div id="panel-categories" class="tab-panel">
     <div class="table-card">
-      <h3>Temps estime par categorie</h3>
+      <h3>Temps estimé par catégorie</h3>
       <table id="categoryTable">
         <thead><tr>
-          <th data-sort="category">Categorie</th>
-          <th data-sort="hours">Estime</th>
-          <th data-sort="spent">Tracke</th>
+          <th data-sort="category">Catégorie</th>
+          <th data-sort="hours">Estimé</th>
+          <th data-sort="spent">Tracké</th>
           <th data-sort="pct">%</th>
-          <th data-sort="tasks">Taches</th>
-          <th data-sort="closedPct">Fermees</th>
-          <th>Repartition</th>
+          <th data-sort="tasks">Tâches</th>
+          <th data-sort="closedPct">Fermées</th>
+          <th>Répartition</th>
         </tr></thead>
         <tbody></tbody>
       </table>
@@ -303,25 +303,25 @@
     <!-- List view -->
     <div id="projectListView">
       <div class="table-card">
-        <h3>Temps estime par projet</h3>
+        <h3>Temps estimé par projet</h3>
         <table id="projectTable">
           <thead><tr>
             <th data-sort="project">Projet</th>
             <th data-sort="budget">Budget</th>
             <th data-sort="tempsVendu">Vendu (j)</th>
-            <th data-sort="hours">Estime</th>
-            <th data-sort="spent">Tracke</th>
+            <th data-sort="hours">Estimé</th>
+            <th data-sort="spent">Tracké</th>
             <th data-sort="budgetPct">Conso.</th>
-            <th data-sort="tasks">Taches</th>
-            <th data-sort="closedPct">Fermees</th>
-            <th>Repartition</th>
+            <th data-sort="tasks">Tâches</th>
+            <th data-sort="closedPct">Fermées</th>
+            <th>Répartition</th>
           </tr></thead>
           <tbody></tbody>
         </table>
       </div>
       <div class="charts-grid">
         <div class="chart-card full">
-          <h3>Heures estimees par projet et par mois (Top 10)</h3>
+          <h3>Heures estimées par projet et par mois (Top 10)</h3>
           <div class="chart-container h400"><canvas id="chartProjectMonthly"></canvas></div>
         </div>
       </div>
@@ -337,24 +337,24 @@
       <div id="projectDetailPrestaTable"></div>
       <div class="charts-grid">
         <div class="chart-card">
-          <h3>Estime vs Tracke par mois</h3>
+          <h3>Estimé vs Tracké par mois</h3>
           <div class="chart-container h300"><canvas id="chartProjectDetailMonthly"></canvas></div>
         </div>
         <div class="chart-card">
-          <h3>Repartition par consultant</h3>
+          <h3>Répartition par consultant</h3>
           <div class="chart-container h300"><canvas id="chartProjectDetailConsultant"></canvas></div>
         </div>
       </div>
       <div class="table-card">
-        <h3>Detail par mois et consultant</h3>
+        <h3>Détail par mois et consultant</h3>
         <table id="projectDetailTable">
           <thead><tr>
             <th data-sort="month">Mois</th>
             <th data-sort="consultant">Consultant</th>
-            <th data-sort="estimated">Estime</th>
-            <th data-sort="tracked">Tracke</th>
-            <th data-sort="tasks">Taches</th>
-            <th data-sort="closedPct">Fermees</th>
+            <th data-sort="estimated">Estimé</th>
+            <th data-sort="tracked">Tracké</th>
+            <th data-sort="tasks">Tâches</th>
+            <th data-sort="closedPct">Fermées</th>
           </tr></thead>
           <tbody></tbody>
         </table>
@@ -366,11 +366,11 @@
   <div id="panel-timeline" class="tab-panel">
     <div class="charts-grid">
       <div class="chart-card full">
-        <h3>Heures estimees par semaine</h3>
+        <h3>Heures estimées par semaine</h3>
         <div class="chart-container h300"><canvas id="chartWeekly"></canvas></div>
       </div>
       <div class="chart-card full">
-        <h3>Repartition par jour de la semaine</h3>
+        <h3>Répartition par jour de la semaine</h3>
         <div class="chart-container h300"><canvas id="chartDaily"></canvas></div>
       </div>
     </div>
@@ -380,20 +380,21 @@
   <!-- TAB: Detail -->
   <div id="panel-detail" class="tab-panel">
     <div class="table-card">
-      <h3>Toutes les taches avec temps estime</h3>
+      <h3>Toutes les tâches avec temps estimé</h3>
       <div style="margin-bottom:12px">
-        <input type="text" id="searchEntries" placeholder="Rechercher une tache ou un projet..."
+        <input type="text" id="searchEntries" placeholder="Rechercher une tâche ou un projet..."
           style="background:var(--bg);color:var(--text);border:1px solid var(--border);padding:8px 14px;border-radius:8px;width:100%;max-width:400px;font-size:14px;outline:none;">
+
       </div>
       <table id="detailTable">
         <thead><tr>
           <th data-sort="date">Date</th>
           <th data-sort="user">Consultant</th>
           <th data-sort="project">Projet</th>
-          <th data-sort="task">Tache</th>
-          <th data-sort="category">Categorie</th>
-          <th data-sort="hours">Estime</th>
-          <th data-sort="spent_hours">Tracke</th>
+          <th data-sort="task">Tâche</th>
+          <th data-sort="category">Catégorie</th>
+          <th data-sort="hours">Estimé</th>
+          <th data-sort="spent_hours">Tracké</th>
           <th data-sort="status">Statut</th>
         </tr></thead>
         <tbody></tbody>
@@ -537,7 +538,7 @@ function applyFilters() {
   const badge = document.getElementById('filterInfo');
   if (badge) {
     if (selectedUser && FILTERED.length === 0) {
-      badge.textContent = 'Aucune donnee sur cette periode pour ce consultant';
+      badge.textContent = 'Aucune donnée sur cette période pour ce consultant';
       badge.style.display = 'block';
     } else {
       badge.style.display = 'none';
@@ -564,14 +565,14 @@ function renderKPIs() {
 
   document.getElementById('kpiGrid').innerHTML = `
     <div class="kpi-card">
-      <div class="kpi-label">Temps estime total</div>
+      <div class="kpi-label">Temps estimé total</div>
       <div class="kpi-value accent">${totalEstimated.toFixed(0)}h</div>
-      <div class="kpi-sub">${totalEntries} taches</div>
+      <div class="kpi-sub">${totalEntries} tâches</div>
     </div>
     <div class="kpi-card">
-      <div class="kpi-label">Temps tracke</div>
+      <div class="kpi-label">Temps tracké</div>
       <div class="kpi-value">${totalTracked.toFixed(0)}h</div>
-      <div class="kpi-sub">${totalTracked > 0 ? (totalTracked / totalEstimated * 100).toFixed(0) + '% de l\'estime' : 'non utilise'}</div>
+      <div class="kpi-sub">${totalTracked > 0 ? (totalTracked / totalEstimated * 100).toFixed(0) + '% de l\'estimé' : 'non utilisé'}</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">Moyenne / mois</div>
@@ -584,12 +585,12 @@ function renderKPIs() {
       <div class="kpi-sub">${(totalEstimated / (projects || 1)).toFixed(0)}h moy/projet</div>
     </div>
     <div class="kpi-card">
-      <div class="kpi-label">Taux completion</div>
+      <div class="kpi-label">Taux complétion</div>
       <div class="kpi-value ${closedPct > 70 ? 'green' : 'orange'}">${closedPct.toFixed(0)}%</div>
-      <div class="kpi-sub">${closedEntries}/${totalEntries} taches fermees</div>
+      <div class="kpi-sub">${closedEntries}/${totalEntries} tâches fermées</div>
     </div>
     <div class="kpi-card">
-      <div class="kpi-label">Moy. par tache</div>
+      <div class="kpi-label">Moy. par tâche</div>
       <div class="kpi-value">${totalEntries > 0 ? (totalEstimated / totalEntries).toFixed(1) : 0}h</div>
       <div class="kpi-sub">estimation moyenne</div>
     </div>
@@ -769,12 +770,12 @@ function renderMonthlyChart() {
   const values = months.map(m => round1(byMonth[m]));
   const avg = values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : 0;
 
-  // Capacite reelle par mois (jours ouvres * 7h)
+  // Capacité réelle par mois (jours ouvrés * 7h)
   const capas = months.map(m => capaciteMois(m));
   const obj80 = capas.map(c => round1(c * 0.8));
 
   const datasets = [
-    { label: 'Estime', data: values, backgroundColor: 'rgba(99,102,241,0.7)', borderRadius: 6, borderSkipped: false },
+    { label: 'Estimé', data: values, backgroundColor: 'rgba(99,102,241,0.7)', borderRadius: 6, borderSkipped: false },
     { label: 'Moyenne', data: Array(months.length).fill(Math.round(avg)), type: 'line', borderColor: '#f59e0b', borderDash: [6, 4], pointRadius: 0, borderWidth: 2, fill: false }
   ];
 
@@ -785,7 +786,7 @@ function renderMonthlyChart() {
       type: 'line', borderColor: '#22c55e', borderDash: [6, 4], pointRadius: 0, borderWidth: 2, fill: false
     });
     datasets.push({
-      label: 'Capacite 35h/sem',
+      label: 'Capacité 35h/sem',
       data: capas,
       type: 'line', borderColor: '#ef4444', borderDash: [2, 3], pointRadius: 0, borderWidth: 2, fill: false
     });
@@ -836,8 +837,8 @@ function renderEstVsTrackedChart() {
     data: {
       labels: months.map(fmtMonth),
       datasets: [
-        { label: 'Temps estime', data: estValues, backgroundColor: 'rgba(99,102,241,0.7)', borderRadius: 6, borderSkipped: false },
-        { label: 'Temps tracke', data: spentValues, backgroundColor: 'rgba(34,197,94,0.5)', borderRadius: 6, borderSkipped: false }
+        { label: 'Temps estimé', data: estValues, backgroundColor: 'rgba(99,102,241,0.7)', borderRadius: 6, borderSkipped: false },
+        { label: 'Temps tracké', data: spentValues, backgroundColor: 'rgba(34,197,94,0.5)', borderRadius: 6, borderSkipped: false }
       ]
     },
     options: {
@@ -970,7 +971,7 @@ function renderWeeklyChart() {
     data: {
       labels: weeks.map(w => w.replace(/^\d{4}-/, '')),
       datasets: [{
-        label: 'Heures estimees', data: values,
+        label: 'Heures estimées', data: values,
         borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,0.1)',
         fill: true, tension: 0.3, pointRadius: 2, pointBackgroundColor: '#6366f1'
       }]
@@ -1036,7 +1037,7 @@ function renderTimelineKPIs() {
     <div class="kpi-card"><div class="kpi-label">Moy. heures/semaine</div><div class="kpi-value">${avgW.toFixed(1)}h</div></div>
     <div class="kpi-card"><div class="kpi-label">Semaine max</div><div class="kpi-value">${maxW.toFixed(1)}h</div></div>
     <div class="kpi-card"><div class="kpi-label">Semaine min</div><div class="kpi-value">${minW.toFixed(1)}h</div></div>
-    <div class="kpi-card"><div class="kpi-label">Taches fermees</div><div class="kpi-value green">${closedTasks}</div><div class="kpi-sub">sur ${totalTasks} total</div></div>
+    <div class="kpi-card"><div class="kpi-label">Tâches fermées</div><div class="kpi-value green">${closedTasks}</div><div class="kpi-sub">sur ${totalTasks} total</div></div>
   `;
 }
 
@@ -1066,12 +1067,12 @@ function renderDetailTable() {
     <td><span style="color:${getCategoryColor(e.category)};font-size:12px">${esc(e.category)}</span></td>
     <td><strong>${e.hours.toFixed(1)}h</strong></td>
     <td>${(e.spent_hours || 0).toFixed(1)}h</td>
-    <td><span class="badge ${e.closed ? 'badge-closed' : 'badge-open'}">${e.closed ? 'Fermee' : 'Ouverte'}</span></td>
+    <td><span class="badge ${e.closed ? 'badge-closed' : 'badge-open'}">${e.closed ? 'Fermée' : 'Ouverte'}</span></td>
   </tr>`).join('');
 
   const bs = 'background:var(--card);color:var(--text);border:1px solid var(--border);padding:4px 10px;border-radius:6px;cursor:pointer;font-size:13px;';
   document.getElementById('detailPagination').innerHTML = `
-    <span style="color:var(--text-dim);font-size:13px">${total} taches</span>
+    <span style="color:var(--text-dim);font-size:13px">${total} tâches</span>
     <button style="${bs}" onclick="detailPage=0;renderDetailTable()" ${detailPage===0?'disabled':''}>&#171;</button>
     <button style="${bs}" onclick="detailPage--;renderDetailTable()" ${detailPage===0?'disabled':''}>&#8249;</button>
     <span style="color:var(--text);font-size:13px">Page ${detailPage+1}/${pages}</span>
@@ -1116,7 +1117,7 @@ function cleanName(name) {
 }
 
 function fmtMonth(m) {
-  const names = ['Jan','Fev','Mar','Avr','Mai','Jun','Jul','Aou','Sep','Oct','Nov','Dec'];
+  const names = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
   const [y, mo] = m.split('-');
   return names[parseInt(mo) - 1] + ' ' + y.slice(2);
 }
@@ -1125,7 +1126,7 @@ function round1(n) { return Math.round(n * 10) / 10; }
 function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 function joursOuvres(monthStr) {
-  // Jours de semaine (lun-ven) sans feries, comme ClickUp
+  // Jours de semaine (lun-ven) sans fériés, comme ClickUp
   const [y, m] = monthStr.split('-').map(Number);
   const daysInMonth = new Date(y, m, 0).getDate();
   let count = 0;
@@ -1201,22 +1202,22 @@ function renderProjectDetailView() {
     <div class="kpi-card">
       <div class="kpi-label">Budget</div>
       <div class="kpi-value accent">${fmtEur(budget)}</div>
-      <div class="kpi-sub">TJM ${fmtEur(tjm)}${b && b.tjm !== DEFAULT_TJM ? '' : ' (defaut)'}</div>
+      <div class="kpi-sub">TJM ${fmtEur(tjm)}${b && b.tjm !== DEFAULT_TJM ? '' : ' (défaut)'}</div>
     </div>
     <div class="kpi-card">
-      <div class="kpi-label">Temps vendu / tracke</div>
+      <div class="kpi-label">Temps vendu / tracké</div>
       <div class="kpi-value">${tempsVendu}j / ${(totalTracked / 7).toFixed(1)}j</div>
-      <div class="kpi-sub ${consoColor}">${tempsPct.toFixed(0)}% consomme</div>
+      <div class="kpi-sub ${consoColor}">${tempsPct.toFixed(0)}% consommé</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">Budget restant</div>
       <div class="kpi-value ${budgetColor}">${fmtEur(budgetRestant)}</div>
-      <div class="kpi-sub">${fmtEur(budgetConsomme)} consomme</div>
+      <div class="kpi-sub">${fmtEur(budgetConsomme)} consommé</div>
     </div>` : `
     <div class="kpi-card">
-      <div class="kpi-label">Estime / Tracke</div>
+      <div class="kpi-label">Estimé / Tracké</div>
       <div class="kpi-value accent">${totalEst.toFixed(0)}h / ${totalTracked.toFixed(0)}h</div>
-      <div class="kpi-sub">${projData.length} taches</div>
+      <div class="kpi-sub">${projData.length} tâches</div>
     </div>`}
     <div class="kpi-card">
       <div class="kpi-label">Consultants</div>
@@ -1228,7 +1229,7 @@ function renderProjectDetailView() {
   // Clear prestations block (info is in tracking table)
   document.getElementById('projectDetailPrestations').innerHTML = '';
 
-  // Suivi par prestation (temps tracke vs vendu)
+  // Suivi par prestation (temps tracké vs vendu)
   renderPrestaTrackingTable(projData, b);
 
   renderProjectDetailMonthlyChart(projData);
@@ -1249,8 +1250,8 @@ function renderProjectDetailMonthlyChart(projData) {
   const months = [...new Set([...Object.keys(byMonthEst), ...Object.keys(byMonthSpent)])].sort();
 
   const datasets = [
-    { label: 'Estime', data: months.map(m => round1(byMonthEst[m] || 0)), backgroundColor: 'rgba(99,102,241,0.7)', borderRadius: 6, borderSkipped: false },
-    { label: 'Tracke', data: months.map(m => round1(byMonthSpent[m] || 0)), backgroundColor: 'rgba(34,197,94,0.5)', borderRadius: 6, borderSkipped: false }
+    { label: 'Estimé', data: months.map(m => round1(byMonthEst[m] || 0)), backgroundColor: 'rgba(99,102,241,0.7)', borderRadius: 6, borderSkipped: false },
+    { label: 'Tracké', data: months.map(m => round1(byMonthSpent[m] || 0)), backgroundColor: 'rgba(34,197,94,0.5)', borderRadius: 6, borderSkipped: false }
   ];
 
   // Add "temps vendu moyen/mois" reference line if budget exists
@@ -1444,12 +1445,12 @@ function renderPrestaTrackingTable(projData, budgetData) {
         <th>Budget</th>
         <th>Vendu</th>
         <th>Cadence</th>
-        <th>Attendu a date</th>
-        <th>Tracke</th>
+        <th>Attendu à date</th>
+        <th>Tracké</th>
         <th>Avance/Retard</th>
         <th>TJM vendu</th>
         <th>TJM effectif</th>
-        <th>Ecart TJM</th>
+        <th>Écart TJM</th>
       </tr></thead>
       <tbody>${rows.map(r => {
         const col = TYPE_COLORS[r.type] || '#64748b';
