@@ -1474,9 +1474,9 @@ function renderPrestaTrackingTable(projData, budgetData) {
         }
 
         const consoColor = r.consoPct > 100 ? 'var(--red)' : r.consoPct > 80 ? 'var(--orange)' : 'var(--green)';
-        const ecart = r.tjmEffectif > 0 ? r.tjmEffectif - r.tjmVendu : 0;
-        const ecartColor = ecart < 0 ? 'var(--red)' : ecart > 0 ? 'var(--green)' : 'var(--text-dim)';
-        const ecartStr = r.tjmEffectif > 0 ? (ecart >= 0 ? '+' : '') + Math.round(ecart) + ' \u20ac' : '-';
+        const ecartPct = r.tjmEffectif > 0 && r.tjmVendu > 0 ? ((r.tjmEffectif - r.tjmVendu) / r.tjmVendu * 100) : 0;
+        const ecartColor = ecartPct < 0 ? 'var(--red)' : ecartPct > 0 ? 'var(--green)' : 'var(--text-dim)';
+        const ecartStr = r.tjmEffectif > 0 ? (ecartPct >= 0 ? '+' : '') + ecartPct.toFixed(0) + '%' : '-';
         const tjmEffStr = r.tjmEffectif > 0 ? fmtEur(r.tjmEffectif) : '<span style="color:var(--text-dim)">-</span>';
 
         return `<tr>
