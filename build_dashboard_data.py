@@ -313,6 +313,7 @@ def main():
                 "user_id": assignee.get("id"),
                 "project": folder_name or "(sans dossier)",
                 "folder_id": str(folder_id) if folder_id else "",
+                "list_name": task.get("list_name", ""),
                 "task": task.get("name", ""),
                 "task_id": task.get("id", ""),
                 "hours": est_hours,

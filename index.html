@@ -359,6 +359,7 @@
       </div>
       <div class="kpi-grid" id="projectDetailKpis"></div>
       <div id="projectDetailPrestations"></div>
+      <div id="projectDetailPrestaTable"></div>
       <div class="charts-grid">
         <div class="chart-card">
           <h3>Estime vs Tracke par mois</h3>
@@ -1301,6 +1302,9 @@ function renderProjectDetailView() {
     prestaEl.innerHTML = '';
   }
 
+  // Suivi par prestation (temps tracke vs vendu)
+  renderPrestaTrackingTable(projData, b);
+
   renderProjectDetailMonthlyChart(projData);
   renderProjectDetailConsultantChart(projData);
   renderProjectDetailTable(projData);
@@ -1411,6 +1415,101 @@ function renderProjectDetailTable(projData) {
   </tr>`).join('');
 
   updateSortIndicators('projectDetailTable', sort);
+}
+
+function renderPrestaTrackingTable(projData, budgetData) {
+  const el = document.getElementById('projectDetailPrestaTable');
+  if (!budgetData || !budgetData.prestations || budgetData.prestations.length === 0) {
+    el.innerHTML = '';
+    return;
+  }
+
+  // Aggregate tracked/estimated hours by list_name
+  const byList = {};
+  projData.forEach(e => {
+    const ln = e.list_name || '';
+    if (!byList[ln]) byList[ln] = { estimated: 0, tracked: 0, tasks: 0, closed: 0 };
+    byList[ln].estimated += e.hours;
+    byList[ln].tracked += (e.spent_hours || 0);
+    byList[ln].tasks++;
+    if (e.closed) byList[ln].closed++;
+  });
+
+  // Match prestations to tracked data
+  const rows = budgetData.prestations.map(p => {
+    const actual = byList[p.list_name] || { estimated: 0, tracked: 0, tasks: 0, closed: 0 };
+    const venduH = p.temps_vendu_jours * 7;
+    const consoPct = venduH > 0 ? (actual.tracked / venduH * 100) : 0;
+    const tjmVendu = p.temps_vendu_jours > 0 ? p.budget / p.temps_vendu_jours : DEFAULT_TJM;
+    const tjmEffectif = actual.tracked > 0 ? (p.budget / (actual.tracked / 7)) : 0;
+    return {
+      name: p.list_name,
+      type: p.type_prestation || '',
+      budget: p.budget,
+      venduJ: p.temps_vendu_jours,
+      venduH,
+      tjmVendu,
+      estimatedH: actual.estimated,
+      trackedH: actual.tracked,
+      trackedJ: actual.tracked / 7,
+      consoPct,
+      tjmEffectif,
+      tasks: actual.tasks,
+    };
+  }).sort((a, b) => b.budget - a.budget);
+
+  const TYPE_COLORS = {
+    'Accompagnement': '#6366f1',
+    'Audit stratégique': '#f43f5e',
+    'Audit technique': '#ef4444',
+    'Rédaction contenu': '#3b82f6',
+    'Reporting': '#22c55e',
+    'Gestion de projets': '#f59e0b',
+    'Roadmap': '#8b5cf6',
+    'AMOA': '#06b6d4',
+    'Recette': '#14b8a6',
+    'Redirections': '#fb923c',
+    'Netlinking': '#84cc16',
+  };
+
+  el.innerHTML = `<div class="table-card">
+    <h3>Suivi par prestation</h3>
+    <table>
+      <thead><tr>
+        <th>Prestation</th>
+        <th>Type</th>
+        <th>Budget</th>
+        <th>Vendu</th>
+        <th>Estime</th>
+        <th>Tracke</th>
+        <th>Conso.</th>
+        <th>TJM vendu</th>
+        <th>TJM effectif</th>
+        <th>Ecart</th>
+      </tr></thead>
+      <tbody>${rows.map(r => {
+        const col = TYPE_COLORS[r.type] || '#64748b';
+        const consoColor = r.consoPct > 100 ? 'var(--red)' : r.consoPct > 80 ? 'var(--orange)' : 'var(--green)';
+        const ecart = r.tjmEffectif > 0 ? r.tjmEffectif - r.tjmVendu : 0;
+        const ecartColor = ecart < 0 ? 'var(--red)' : ecart > 0 ? 'var(--green)' : 'var(--text-dim)';
+        const ecartStr = r.tjmEffectif > 0 ? (ecart >= 0 ? '+' : '') + Math.round(ecart) + ' \u20ac' : '-';
+        const consoStr = r.venduH > 0 ? `<span style="color:${consoColor};font-weight:600">${r.consoPct.toFixed(0)}%</span>` : '-';
+        const tjmEffStr = r.tjmEffectif > 0 ? fmtEur(r.tjmEffectif) : '<span style="color:var(--text-dim)">-</span>';
+        return `<tr>
+          <td>${esc(r.name)}</td>
+          <td><span class="presta-type" style="background:${col}22;color:${col}">${esc(r.type)}</span></td>
+          <td><strong>${r.budget > 0 ? fmtEur(r.budget) : '-'}</strong></td>
+          <td>${r.venduJ > 0 ? r.venduJ + 'j (' + r.venduH.toFixed(0) + 'h)' : '-'}</td>
+          <td>${r.estimatedH.toFixed(1)}h</td>
+          <td>${r.trackedH.toFixed(1)}h (${r.trackedJ.toFixed(1)}j)</td>
+          <td>${consoStr}</td>
+          <td>${fmtEur(r.tjmVendu)}</td>
+          <td>${tjmEffStr}</td>
+          <td><span style="color:${ecartColor};font-weight:600">${ecartStr}</span></td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table>
+  </div>`;
 }
 </script>
 </body>
