@@ -178,31 +178,6 @@
   }
   .btn-back:hover { color: var(--text); border-color: var(--accent); }
   .project-detail-header h2 { font-size: 20px; font-weight: 700; }
-  .prestations-card {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 20px;
-    margin-bottom: 20px;
-  }
-  .prestations-card h3 { font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--text-dim); }
-  .prestations-grid {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-  }
-  .presta-tag {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    background: rgba(99,102,241,0.08);
-    border: 1px solid rgba(99,102,241,0.2);
-    border-radius: 8px;
-    padding: 8px 14px;
-    font-size: 13px;
-  }
-  .presta-tag .presta-name { font-weight: 600; color: var(--text); }
-  .presta-tag .presta-meta { color: var(--text-dim); font-size: 12px; }
   .presta-type {
     display: inline-block;
     padding: 2px 6px;
@@ -358,7 +333,7 @@
         <h2 id="projectDetailTitle"></h2>
       </div>
       <div class="kpi-grid" id="projectDetailKpis"></div>
-      <div id="projectDetailPrestations"></div>
+      <div id="projectDetailPrestations" style="display:none"></div>
       <div id="projectDetailPrestaTable"></div>
       <div class="charts-grid">
         <div class="chart-card">
@@ -1217,90 +1192,41 @@ function renderProjectDetailView() {
   const budgetPct = budget > 0 ? (budgetConsomme / budget * 100) : 0;
   const tempsPct = tempsVenduH > 0 ? (totalTracked / tempsVenduH * 100) : 0;
 
-  let budgetKpis = '';
-  if (budget > 0 || tempsVendu > 0) {
-    const consoColor = tempsPct > 100 ? 'red' : tempsPct > 80 ? 'orange' : 'green';
-    const budgetColor = budgetPct > 100 ? 'red' : budgetPct > 80 ? 'orange' : 'green';
-    budgetKpis = `
+  const hasBudget = budget > 0 || tempsVendu > 0;
+  const consoColor = tempsPct > 100 ? 'red' : tempsPct > 80 ? 'orange' : 'green';
+  const budgetColor = budgetPct > 100 ? 'red' : budgetPct > 80 ? 'orange' : 'green';
+
+  document.getElementById('projectDetailKpis').innerHTML = `
+    ${hasBudget ? `
     <div class="kpi-card">
       <div class="kpi-label">Budget</div>
       <div class="kpi-value accent">${fmtEur(budget)}</div>
       <div class="kpi-sub">TJM ${fmtEur(tjm)}${b && b.tjm !== DEFAULT_TJM ? '' : ' (defaut)'}</div>
     </div>
     <div class="kpi-card">
-      <div class="kpi-label">Temps vendu</div>
-      <div class="kpi-value">${tempsVendu}j</div>
-      <div class="kpi-sub">${tempsVenduH.toFixed(0)}h (${tempsVendu}j x 7h)</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Conso. temps</div>
-      <div class="kpi-value ${consoColor}">${tempsPct.toFixed(0)}%</div>
-      <div class="kpi-sub">${totalTracked.toFixed(1)}h trackees / ${tempsVenduH.toFixed(0)}h vendues</div>
+      <div class="kpi-label">Temps vendu / tracke</div>
+      <div class="kpi-value">${tempsVendu}j / ${(totalTracked / 7).toFixed(1)}j</div>
+      <div class="kpi-sub ${consoColor}">${tempsPct.toFixed(0)}% consomme</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">Budget restant</div>
       <div class="kpi-value ${budgetColor}">${fmtEur(budgetRestant)}</div>
-      <div class="kpi-sub">${fmtEur(budgetConsomme)} consomme (${budgetPct.toFixed(0)}%)</div>
-    </div>`;
-  }
-
-  document.getElementById('projectDetailKpis').innerHTML = `
-    ${budgetKpis}
+      <div class="kpi-sub">${fmtEur(budgetConsomme)} consomme</div>
+    </div>` : `
     <div class="kpi-card">
-      <div class="kpi-label">Heures estimees</div>
-      <div class="kpi-value accent">${totalEst.toFixed(1)}h</div>
+      <div class="kpi-label">Estime / Tracke</div>
+      <div class="kpi-value accent">${totalEst.toFixed(0)}h / ${totalTracked.toFixed(0)}h</div>
       <div class="kpi-sub">${projData.length} taches</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Heures trackees</div>
-      <div class="kpi-value">${totalTracked.toFixed(1)}h</div>
-      <div class="kpi-sub">${completion.toFixed(0)}% du temps estime</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Mois actifs</div>
-      <div class="kpi-value">${months.size}</div>
-      <div class="kpi-sub">${(totalEst / (months.size || 1)).toFixed(0)}h/mois en moyenne</div>
-    </div>
+    </div>`}
     <div class="kpi-card">
       <div class="kpi-label">Consultants</div>
       <div class="kpi-value">${consultants.size}</div>
       <div class="kpi-sub">${[...consultants].join(', ')}</div>
     </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Taux completion</div>
-      <div class="kpi-value ${closedPct > 70 ? 'green' : 'orange'}">${closedPct.toFixed(0)}%</div>
-      <div class="kpi-sub">${closedCount}/${projData.length} taches fermees</div>
-    </div>
   `;
 
-  // Prestations vendues
-  const prestaEl = document.getElementById('projectDetailPrestations');
-  if (b && b.prestations && b.prestations.length > 0) {
-    const TYPE_COLORS = {
-      'Accompagnement': '#6366f1',
-      'Audit stratégique': '#f43f5e',
-      'Audit technique': '#ef4444',
-      'Rédaction contenu': '#3b82f6',
-      'Reporting': '#22c55e',
-      'Gestion de projets': '#f59e0b',
-      'Roadmap': '#8b5cf6',
-      'AMOA': '#06b6d4',
-      'Recette': '#14b8a6',
-      'Redirections': '#fb923c',
-      'Netlinking': '#84cc16',
-    };
-    const tags = b.prestations.map(p => {
-      const col = TYPE_COLORS[p.type_prestation] || '#64748b';
-      const typeTag = p.type_prestation ? `<span class="presta-type" style="background:${col}22;color:${col}">${esc(p.type_prestation)}</span>` : '';
-      const jours = p.temps_vendu_jours > 0 ? p.temps_vendu_jours + 'j' : '';
-      const euros = p.budget > 0 ? fmtEur(p.budget) : '';
-      const meta = [jours, euros].filter(Boolean).join(' · ');
-      return `<div class="presta-tag">${typeTag}<span class="presta-name">${esc(p.list_name)}</span>${meta ? `<span class="presta-meta">${meta}</span>` : ''}</div>`;
-    }).join('');
-    prestaEl.innerHTML = `<div class="prestations-card"><h3>Prestations vendues</h3><div class="prestations-grid">${tags}</div></div>`;
-  } else {
-    prestaEl.innerHTML = '';
-  }
+  // Clear prestations block (info is in tracking table)
+  document.getElementById('projectDetailPrestations').innerHTML = '';
 
   // Suivi par prestation (temps tracke vs vendu)
   renderPrestaTrackingTable(projData, b);
