@@ -74,6 +74,27 @@ def extract_task_fields(task):
     list_obj = task.get("list", {})
     space = task.get("space", {})
 
+    # Extract custom fields (budget, temps vendu, etc.)
+    custom_fields = {}
+    FIELD_IDS = {
+        "40266294-b68e-4bed-962a-67a96b87c5cc": "budget",
+        "48ebbdfa-84c9-42ce-b848-db403dd51e77": "temps_vendu_jours",
+        "6fca6126-5723-487e-85ae-75ffce896180": "date_debut",
+        "f1f59d97-3c81-49b9-b508-cfc1a95ae3d7": "date_fin",
+        "aec8c6cc-6251-40b1-bf7f-ba26fbf3a6e6": "type_prestation",
+    }
+    for cf in task.get("custom_fields", []):
+        field_id = cf.get("id")
+        if field_id in FIELD_IDS:
+            value = cf.get("value")
+            if cf.get("type") == "drop_down" and isinstance(value, dict):
+                value = value.get("name")
+            elif cf.get("type") == "drop_down" and value is not None:
+                # value is an index, resolve from options
+                opts = cf.get("type_config", {}).get("options", [])
+                value = next((o["name"] for o in opts if str(o.get("orderindex")) == str(value)), value)
+            custom_fields[FIELD_IDS[field_id]] = value
+
     return {
         "id": task.get("id"),
         "name": task.get("name"),
@@ -89,6 +110,7 @@ def extract_task_fields(task):
         "list_id": list_obj.get("id") if isinstance(list_obj, dict) else None,
         "list_name": list_obj.get("name") if isinstance(list_obj, dict) else None,
         "space_id": space.get("id") if isinstance(space, dict) else None,
+        "custom_fields": custom_fields,
     }
 
 

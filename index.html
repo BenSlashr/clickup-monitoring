@@ -298,9 +298,11 @@
         <table id="projectTable">
           <thead><tr>
             <th data-sort="project">Projet</th>
+            <th data-sort="budget">Budget</th>
+            <th data-sort="tempsVendu">Vendu (j)</th>
             <th data-sort="hours">Estime</th>
             <th data-sort="spent">Tracke</th>
-            <th data-sort="pct">%</th>
+            <th data-sort="budgetPct">Conso.</th>
             <th data-sort="tasks">Taches</th>
             <th data-sort="closedPct">Fermees</th>
             <th>Repartition</th>
@@ -841,6 +843,14 @@ function renderEstVsTrackedChart() {
   });
 }
 
+// ===== BUDGET HELPERS =====
+const DEFAULT_TJM = 690;
+function getProjectBudget(projectName) {
+  if (typeof PROJECT_BUDGETS === 'undefined') return null;
+  return PROJECT_BUDGETS[projectName] || null;
+}
+function fmtEur(n) { return n.toLocaleString('fr-FR', { maximumFractionDigits: 0 }) + ' \u20ac'; }
+
 // ===== PROJECT TABLE =====
 function renderProjectTable() {
   const byProject = {};
@@ -852,11 +862,20 @@ function renderProjectTable() {
     if (e.closed) byProject[e.project].closed++;
   });
   const totalH = FILTERED.reduce((s, e) => s + e.hours, 0);
-  let rows = Object.entries(byProject).map(([project, d]) => ({
-    project, hours: d.hours, spent: d.spent,
-    pct: totalH > 0 ? d.hours / totalH * 100 : 0,
-    tasks: d.tasks, closedPct: d.tasks > 0 ? d.closed / d.tasks * 100 : 0
-  }));
+  let rows = Object.entries(byProject).map(([project, d]) => {
+    const b = getProjectBudget(project);
+    const budget = b ? b.budget : 0;
+    const tempsVendu = b ? b.temps_vendu_jours : 0;
+    const tjm = b ? b.tjm : DEFAULT_TJM;
+    const tempsVenduH = tempsVendu * 7;
+    const budgetPct = tempsVenduH > 0 ? (d.spent / tempsVenduH * 100) : 0;
+    return {
+      project, hours: d.hours, spent: d.spent,
+      pct: totalH > 0 ? d.hours / totalH * 100 : 0,
+      tasks: d.tasks, closedPct: d.tasks > 0 ? d.closed / d.tasks * 100 : 0,
+      budget, tempsVendu, tjm, budgetPct
+    };
+  });
   const sort = sortState.projectTable || { col: 'hours', dir: 'desc' };
   rows.sort((a, b) => {
     const va = a[sort.col], vb = b[sort.col];
@@ -864,15 +883,23 @@ function renderProjectTable() {
     return sort.dir === 'asc' ? cmp : -cmp;
   });
   const maxH = Math.max(...rows.map(r => r.hours), 1);
-  document.querySelector('#projectTable tbody').innerHTML = rows.map(r => `<tr class="clickable-row" data-project="${esc(r.project)}">
+  document.querySelector('#projectTable tbody').innerHTML = rows.map(r => {
+    const budgetCell = r.budget > 0 ? `<strong>${fmtEur(r.budget)}</strong>` : '<span style="color:var(--text-dim)">-</span>';
+    const venduCell = r.tempsVendu > 0 ? `${r.tempsVendu}j` : '<span style="color:var(--text-dim)">-</span>';
+    const consoColor = r.budgetPct > 100 ? 'var(--red)' : r.budgetPct > 80 ? 'var(--orange)' : 'var(--green)';
+    const consoCell = r.tempsVendu > 0 ? `<span style="color:${consoColor};font-weight:600">${r.budgetPct.toFixed(0)}%</span>` : '<span style="color:var(--text-dim)">-</span>';
+    return `<tr class="clickable-row" data-project="${esc(r.project)}">
     <td>${cleanName(r.project)}</td>
+    <td>${budgetCell}</td>
+    <td>${venduCell}</td>
     <td><strong>${r.hours.toFixed(1)}h</strong></td>
     <td>${r.spent.toFixed(1)}h</td>
-    <td>${r.pct.toFixed(1)}%</td>
+    <td>${consoCell}</td>
     <td>${r.tasks}</td>
     <td><span class="badge ${r.closedPct > 70 ? 'badge-closed' : 'badge-open'}">${r.closedPct.toFixed(0)}%</span></td>
     <td><div class="mini-bar"><div class="mini-bar-fill" style="width:${r.hours/maxH*100}%"></div></div></td>
-  </tr>`).join('');
+  </tr>`;
+  }).join('');
   updateSortIndicators('projectTable', sort);
 }
 
@@ -1143,7 +1170,46 @@ function renderProjectDetailView() {
   const closedPct = projData.length > 0 ? (closedCount / projData.length * 100) : 0;
   const completion = totalEst > 0 ? (totalTracked / totalEst * 100) : 0;
 
+  // Budget
+  const b = getProjectBudget(selectedProject);
+  const budget = b ? b.budget : 0;
+  const tempsVendu = b ? b.temps_vendu_jours : 0;
+  const tjm = b ? b.tjm : DEFAULT_TJM;
+  const tempsVenduH = tempsVendu * 7;
+  const budgetConsomme = totalTracked / 7 * tjm;
+  const budgetRestant = budget - budgetConsomme;
+  const budgetPct = budget > 0 ? (budgetConsomme / budget * 100) : 0;
+  const tempsPct = tempsVenduH > 0 ? (totalTracked / tempsVenduH * 100) : 0;
+
+  let budgetKpis = '';
+  if (budget > 0 || tempsVendu > 0) {
+    const consoColor = tempsPct > 100 ? 'red' : tempsPct > 80 ? 'orange' : 'green';
+    const budgetColor = budgetPct > 100 ? 'red' : budgetPct > 80 ? 'orange' : 'green';
+    budgetKpis = `
+    <div class="kpi-card">
+      <div class="kpi-label">Budget</div>
+      <div class="kpi-value accent">${fmtEur(budget)}</div>
+      <div class="kpi-sub">TJM ${fmtEur(tjm)}${b && b.tjm !== DEFAULT_TJM ? '' : ' (defaut)'}</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Temps vendu</div>
+      <div class="kpi-value">${tempsVendu}j</div>
+      <div class="kpi-sub">${tempsVenduH.toFixed(0)}h (${tempsVendu}j x 7h)</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Conso. temps</div>
+      <div class="kpi-value ${consoColor}">${tempsPct.toFixed(0)}%</div>
+      <div class="kpi-sub">${totalTracked.toFixed(1)}h trackees / ${tempsVenduH.toFixed(0)}h vendues</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Budget restant</div>
+      <div class="kpi-value ${budgetColor}">${fmtEur(budgetRestant)}</div>
+      <div class="kpi-sub">${fmtEur(budgetConsomme)} consomme (${budgetPct.toFixed(0)}%)</div>
+    </div>`;
+  }
+
   document.getElementById('projectDetailKpis').innerHTML = `
+    ${budgetKpis}
     <div class="kpi-card">
       <div class="kpi-label">Heures estimees</div>
       <div class="kpi-value accent">${totalEst.toFixed(1)}h</div>
@@ -1188,15 +1254,25 @@ function renderProjectDetailMonthlyChart(projData) {
   });
   const months = [...new Set([...Object.keys(byMonthEst), ...Object.keys(byMonthSpent)])].sort();
 
+  const datasets = [
+    { label: 'Estime', data: months.map(m => round1(byMonthEst[m] || 0)), backgroundColor: 'rgba(99,102,241,0.7)', borderRadius: 6, borderSkipped: false },
+    { label: 'Tracke', data: months.map(m => round1(byMonthSpent[m] || 0)), backgroundColor: 'rgba(34,197,94,0.5)', borderRadius: 6, borderSkipped: false }
+  ];
+
+  // Add "temps vendu moyen/mois" reference line if budget exists
+  const b = getProjectBudget(selectedProject);
+  if (b && b.temps_vendu_jours > 0 && months.length > 0) {
+    const avgPerMonth = round1(b.temps_vendu_jours * 7 / months.length);
+    datasets.push({
+      label: 'Moy. vendu/mois (' + avgPerMonth + 'h)',
+      data: Array(months.length).fill(avgPerMonth),
+      type: 'line', borderColor: '#f59e0b', borderDash: [6, 4], pointRadius: 0, borderWidth: 2, fill: false
+    });
+  }
+
   charts.projectDetailMonthly = new Chart(document.getElementById('chartProjectDetailMonthly'), {
     type: 'bar',
-    data: {
-      labels: months.map(fmtMonth),
-      datasets: [
-        { label: 'Estime', data: months.map(m => round1(byMonthEst[m] || 0)), backgroundColor: 'rgba(99,102,241,0.7)', borderRadius: 6, borderSkipped: false },
-        { label: 'Tracke', data: months.map(m => round1(byMonthSpent[m] || 0)), backgroundColor: 'rgba(34,197,94,0.5)', borderRadius: 6, borderSkipped: false }
-      ]
-    },
+    data: { labels: months.map(fmtMonth), datasets },
     options: {
       responsive: true, maintainAspectRatio: false,
       scales: {

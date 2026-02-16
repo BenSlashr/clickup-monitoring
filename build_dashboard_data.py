@@ -186,6 +186,73 @@ def categorize(task):
     return "Autre"
 
 
+DEFAULT_TJM = 690
+
+
+def build_project_budgets(tasks, folder_names):
+    """Extract budget data from INFOS GLOBALES tasks.
+
+    Returns a dict keyed by folder_id with aggregated budget info.
+    """
+    # Collect per-list budget data from INFOS GLOBALES tasks
+    list_budgets = {}
+    for task in tasks:
+        if "infos globales" not in (task.get("name") or "").lower():
+            continue
+        cf = task.get("custom_fields", {})
+        if not cf:
+            continue
+        budget = cf.get("budget")
+        temps_vendu = cf.get("temps_vendu_jours")
+        if budget is None and temps_vendu is None:
+            continue
+        list_id = task.get("list_id")
+        folder_id = task.get("folder_id")
+        if not folder_id:
+            continue
+        list_budgets[list_id] = {
+            "folder_id": str(folder_id),
+            "list_id": str(list_id) if list_id else "",
+            "list_name": task.get("list_name", ""),
+            "budget": float(budget) if budget else 0,
+            "temps_vendu_jours": float(temps_vendu) if temps_vendu else 0,
+            "type_prestation": cf.get("type_prestation", ""),
+        }
+
+    # Aggregate per folder (project)
+    folder_budgets = {}
+    for lb in list_budgets.values():
+        fid = lb["folder_id"]
+        if fid not in folder_budgets:
+            fname = folder_names.get(fid, "")
+            folder_budgets[fid] = {
+                "folder_id": fid,
+                "folder_name": fname,
+                "budget": 0,
+                "temps_vendu_jours": 0,
+                "prestations": [],
+            }
+        folder_budgets[fid]["budget"] += lb["budget"]
+        folder_budgets[fid]["temps_vendu_jours"] += lb["temps_vendu_jours"]
+        folder_budgets[fid]["prestations"].append({
+            "list_name": lb["list_name"],
+            "budget": lb["budget"],
+            "temps_vendu_jours": lb["temps_vendu_jours"],
+            "type_prestation": lb["type_prestation"],
+        })
+
+    # Compute TJM per folder
+    for fb in folder_budgets.values():
+        if fb["temps_vendu_jours"] > 0 and fb["budget"] > 0:
+            fb["tjm"] = round(fb["budget"] / fb["temps_vendu_jours"], 2)
+        else:
+            fb["tjm"] = DEFAULT_TJM
+        fb["budget"] = round(fb["budget"], 2)
+        fb["temps_vendu_jours"] = round(fb["temps_vendu_jours"], 2)
+
+    return folder_budgets
+
+
 def main():
     with open(INPUT) as f:
         tasks = json.load(f)
@@ -193,6 +260,12 @@ def main():
     # Load folder mapping for better names
     with open(FOLDER_MAP) as f:
         folder_names = json.load(f)
+
+    # Build project budgets from INFOS GLOBALES
+    project_budgets = build_project_budgets(tasks, folder_names)
+    print(f"Project budgets found: {len(project_budgets)} projects")
+    total_budget = sum(fb["budget"] for fb in project_budgets.values())
+    print(f"Total budget: {total_budget:,.0f} EUR")
 
     entries = []
     skipped_no_estimate = 0
@@ -275,9 +348,21 @@ def main():
     for cat, hours in sorted(cats.items(), key=lambda x: -x[1]):
         print(f"  {cat}: {hours:.0f}h")
 
+    # Build budget lookup by folder_name for JS
+    budgets_by_name = {}
+    for fb in project_budgets.values():
+        name = fb["folder_name"]
+        if name:
+            budgets_by_name[name] = {
+                "budget": fb["budget"],
+                "temps_vendu_jours": fb["temps_vendu_jours"],
+                "tjm": fb["tjm"],
+                "prestations": fb["prestations"],
+            }
+
     # Save JSON
     with open(OUTPUT_JSON, "w") as f:
-        json.dump(entries, f, indent=2, ensure_ascii=True)
+        json.dump({"entries": entries, "project_budgets": budgets_by_name}, f, indent=2, ensure_ascii=True)
     print(f"\nSaved {OUTPUT_JSON}")
 
     # Save JS (for dashboard)
@@ -285,7 +370,11 @@ def main():
         f.write("const RAW_DATA = ")
         json.dump(entries, f, ensure_ascii=True)
         f.write(";\n")
+        f.write("const PROJECT_BUDGETS = ")
+        json.dump(budgets_by_name, f, ensure_ascii=True)
+        f.write(";\n")
     print(f"Saved {OUTPUT_JS}")
+    print(f"Budget data for {len(budgets_by_name)} projects included")
 
 
 if __name__ == "__main__":
