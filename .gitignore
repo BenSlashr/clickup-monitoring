@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+*.json
+!folder_mapping.json
+!folder_mapping_full.json
+data_embed.js
+.claude/
