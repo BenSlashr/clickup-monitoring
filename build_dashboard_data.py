@@ -217,6 +217,8 @@ def build_project_budgets(tasks, folder_names):
             "budget": float(budget) if budget else 0,
             "temps_vendu_jours": float(temps_vendu) if temps_vendu else 0,
             "type_prestation": cf.get("type_prestation", ""),
+            "date_debut": cf.get("date_debut"),
+            "date_fin": cf.get("date_fin"),
         }
 
     # Aggregate per folder (project)
@@ -234,11 +236,27 @@ def build_project_budgets(tasks, folder_names):
             }
         folder_budgets[fid]["budget"] += lb["budget"]
         folder_budgets[fid]["temps_vendu_jours"] += lb["temps_vendu_jours"]
+        # Convert ms timestamps to ISO dates
+        date_debut_iso = None
+        date_fin_iso = None
+        if lb.get("date_debut"):
+            try:
+                date_debut_iso = datetime.fromtimestamp(int(lb["date_debut"]) / 1000).strftime("%Y-%m-%d")
+            except (ValueError, OSError):
+                pass
+        if lb.get("date_fin"):
+            try:
+                date_fin_iso = datetime.fromtimestamp(int(lb["date_fin"]) / 1000).strftime("%Y-%m-%d")
+            except (ValueError, OSError):
+                pass
+
         folder_budgets[fid]["prestations"].append({
             "list_name": lb["list_name"],
             "budget": lb["budget"],
             "temps_vendu_jours": lb["temps_vendu_jours"],
             "type_prestation": lb["type_prestation"],
+            "date_debut": date_debut_iso,
+            "date_fin": date_fin_iso,
         })
 
     # Compute TJM per folder

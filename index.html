@@ -1417,6 +1417,21 @@ function renderProjectDetailTable(projData) {
   updateSortIndicators('projectDetailTable', sort);
 }
 
+function elapsedMonths(dateDebut, dateFin) {
+  // Number of full months elapsed between dateDebut and today, capped at total period
+  if (!dateDebut) return null;
+  const now = new Date();
+  const d1 = new Date(dateDebut);
+  const d2 = dateFin ? new Date(dateFin) : null;
+  const totalMonths = d2 ? Math.max(1, (d2.getFullYear() - d1.getFullYear()) * 12 + d2.getMonth() - d1.getMonth()) : null;
+  let elapsed = (now.getFullYear() - d1.getFullYear()) * 12 + now.getMonth() - d1.getMonth();
+  // Count current month as started
+  if (now.getDate() >= d1.getDate()) elapsed += 1;
+  if (elapsed < 0) elapsed = 0;
+  if (totalMonths !== null) elapsed = Math.min(elapsed, totalMonths);
+  return { elapsed, total: totalMonths };
+}
+
 function renderPrestaTrackingTable(projData, budgetData) {
   const el = document.getElementById('projectDetailPrestaTable');
   if (!budgetData || !budgetData.prestations || budgetData.prestations.length === 0) {
@@ -1442,6 +1457,20 @@ function renderPrestaTrackingTable(projData, budgetData) {
     const consoPct = venduH > 0 ? (actual.tracked / venduH * 100) : 0;
     const tjmVendu = p.temps_vendu_jours > 0 ? p.budget / p.temps_vendu_jours : DEFAULT_TJM;
     const tjmEffectif = actual.tracked > 0 ? (p.budget / (actual.tracked / 7)) : 0;
+
+    // Expected consumption to date
+    const em = elapsedMonths(p.date_debut, p.date_fin);
+    let attenduJ = null;
+    let attenduH = null;
+    let cadenceJ = null;
+    if (em && em.total && p.temps_vendu_jours > 0) {
+      cadenceJ = p.temps_vendu_jours / em.total;
+      attenduJ = cadenceJ * em.elapsed;
+      attenduH = attenduJ * 7;
+    }
+    const trackedJ = actual.tracked / 7;
+    const deltaJ = attenduJ !== null ? trackedJ - attenduJ : null;
+
     return {
       name: p.list_name,
       type: p.type_prestation || '',
@@ -1451,10 +1480,18 @@ function renderPrestaTrackingTable(projData, budgetData) {
       tjmVendu,
       estimatedH: actual.estimated,
       trackedH: actual.tracked,
-      trackedJ: actual.tracked / 7,
+      trackedJ,
       consoPct,
       tjmEffectif,
       tasks: actual.tasks,
+      cadenceJ,
+      attenduJ,
+      attenduH,
+      deltaJ,
+      elapsedMonths: em ? em.elapsed : null,
+      totalMonths: em ? em.total : null,
+      dateDebut: p.date_debut,
+      dateFin: p.date_fin,
     };
   }).sort((a, b) => b.budget - a.budget);
 
@@ -1480,29 +1517,50 @@ function renderPrestaTrackingTable(projData, budgetData) {
         <th>Type</th>
         <th>Budget</th>
         <th>Vendu</th>
-        <th>Estime</th>
+        <th>Cadence</th>
+        <th>Attendu a date</th>
         <th>Tracke</th>
-        <th>Conso.</th>
+        <th>Avance/Retard</th>
         <th>TJM vendu</th>
         <th>TJM effectif</th>
-        <th>Ecart</th>
+        <th>Ecart TJM</th>
       </tr></thead>
       <tbody>${rows.map(r => {
         const col = TYPE_COLORS[r.type] || '#64748b';
+
+        // Consumption vs expected
+        const attenduStr = r.attenduJ !== null
+          ? `${r.attenduJ.toFixed(1)}j (${r.attenduH.toFixed(0)}h)<div style="color:var(--text-dim);font-size:11px">mois ${r.elapsedMonths}/${r.totalMonths}</div>`
+          : '<span style="color:var(--text-dim)">-</span>';
+
+        const cadenceStr = r.cadenceJ !== null
+          ? `${r.cadenceJ.toFixed(1)}j/mois`
+          : '<span style="color:var(--text-dim)">-</span>';
+
+        // Delta: positive = over-consumed (bad), negative = under-consumed (good)
+        let deltaStr = '-';
+        let deltaColor = 'var(--text-dim)';
+        if (r.deltaJ !== null) {
+          if (r.deltaJ > 0.5) { deltaColor = 'var(--red)'; deltaStr = '+' + r.deltaJ.toFixed(1) + 'j'; }
+          else if (r.deltaJ < -0.5) { deltaColor = 'var(--green)'; deltaStr = r.deltaJ.toFixed(1) + 'j'; }
+          else { deltaColor = 'var(--text-dim)'; deltaStr = '~0j'; }
+        }
+
         const consoColor = r.consoPct > 100 ? 'var(--red)' : r.consoPct > 80 ? 'var(--orange)' : 'var(--green)';
         const ecart = r.tjmEffectif > 0 ? r.tjmEffectif - r.tjmVendu : 0;
         const ecartColor = ecart < 0 ? 'var(--red)' : ecart > 0 ? 'var(--green)' : 'var(--text-dim)';
         const ecartStr = r.tjmEffectif > 0 ? (ecart >= 0 ? '+' : '') + Math.round(ecart) + ' \u20ac' : '-';
-        const consoStr = r.venduH > 0 ? `<span style="color:${consoColor};font-weight:600">${r.consoPct.toFixed(0)}%</span>` : '-';
         const tjmEffStr = r.tjmEffectif > 0 ? fmtEur(r.tjmEffectif) : '<span style="color:var(--text-dim)">-</span>';
+
         return `<tr>
           <td>${esc(r.name)}</td>
           <td><span class="presta-type" style="background:${col}22;color:${col}">${esc(r.type)}</span></td>
           <td><strong>${r.budget > 0 ? fmtEur(r.budget) : '-'}</strong></td>
-          <td>${r.venduJ > 0 ? r.venduJ + 'j (' + r.venduH.toFixed(0) + 'h)' : '-'}</td>
-          <td>${r.estimatedH.toFixed(1)}h</td>
+          <td>${r.venduJ > 0 ? r.venduJ + 'j' : '-'}</td>
+          <td>${cadenceStr}</td>
+          <td>${attenduStr}</td>
           <td>${r.trackedH.toFixed(1)}h (${r.trackedJ.toFixed(1)}j)</td>
-          <td>${consoStr}</td>
+          <td><span style="color:${deltaColor};font-weight:600;font-size:14px">${deltaStr}</span></td>
           <td>${fmtEur(r.tjmVendu)}</td>
           <td>${tjmEffStr}</td>
           <td><span style="color:${ecartColor};font-weight:600">${ecartStr}</span></td>
