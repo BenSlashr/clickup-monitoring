@@ -6,6 +6,7 @@
 <title>Slashr - Dashboard Consultants</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <script src="data.js"></script>
+<script src="calendar_data.js"></script>
 <style>
   :root {
     --bg: #0f1117;
@@ -247,6 +248,7 @@
     <button class="tab-btn" data-tab="projects">Projets</button>
     <button class="tab-btn" data-tab="timeline">Timeline</button>
     <button class="tab-btn" data-tab="consultants">Consultants</button>
+    <button class="tab-btn" data-tab="meetings">Réunions</button>
     <button class="tab-btn" data-tab="detail">Détail tâches</button>
   </div>
 
@@ -433,6 +435,43 @@
     </div>
   </div>
 
+  <!-- TAB: Meetings (Google Calendar) -->
+  <div id="panel-meetings" class="tab-panel">
+    <div class="kpi-grid" id="meetingsKpis"></div>
+    <div class="charts-grid">
+      <div class="chart-card">
+        <h3>Internes vs Externes (heures)</h3>
+        <div class="chart-container h300"><canvas id="chartMeetingsType"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>Heures de réunion par mois</h3>
+        <div class="chart-container h300"><canvas id="chartMeetingsMonthly"></canvas></div>
+      </div>
+    </div>
+    <div class="table-card">
+      <h3>Réunions par consultant (Google Calendar)</h3>
+      <table id="meetingsTable">
+        <thead><tr>
+          <th data-sort="consultant">Consultant</th>
+          <th data-sort="totalH">Total</th>
+          <th data-sort="internalH">Internes</th>
+          <th data-sort="externalH">Externes</th>
+          <th data-sort="count">Réunions</th>
+          <th data-sort="avgDuration">Durée moy.</th>
+          <th data-sort="internalPct">% Interne</th>
+          <th>Répartition</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="charts-grid">
+      <div class="chart-card full">
+        <h3>Heures de réunion par consultant et par mois</h3>
+        <div class="chart-container h400"><canvas id="chartMeetingsConsultantMonthly"></canvas></div>
+      </div>
+    </div>
+  </div>
+
   <!-- TAB: Detail -->
   <div id="panel-detail" class="tab-panel">
     <div class="table-card">
@@ -509,6 +548,7 @@ function renderCurrentTab(tab) {
   if (tab === 'consultants') {
     if (selectedConsultant) { renderConsultantDetailView(); } else { renderConsultantListView(); }
   }
+  if (tab === 'meetings') { renderMeetingsTab(); }
   if (tab === 'timeline') { renderWeeklyChart(); renderDailyChart(); renderTimelineKPIs(); }
   if (tab === 'detail') { renderDetailTable(); }
 }
@@ -1183,6 +1223,7 @@ document.addEventListener('click', function(e) {
   if (tableId === 'projectDetailTable') renderProjectDetailTable(FILTERED);
   if (tableId === 'consultantTable') renderConsultantTable();
   if (tableId === 'consultantCategoryTable') renderConsultantCategoryTable(FILTERED);
+  if (tableId === 'meetingsTable') renderMeetingsTableOnly();
   if (tableId === 'detailTable') { detailPage = 0; renderDetailTable(); }
 });
 
@@ -1666,6 +1707,241 @@ function renderConsultantCategoryTable(data) {
     <td><div class="mini-bar"><div class="mini-bar-fill" style="width:${r.hours/maxH*100}%;background:${getCategoryColor(r.category)}"></div></div></td>
   </tr>`).join('');
   updateSortIndicators('consultantCategoryTable', sort);
+}
+
+// ===== MEETINGS TAB (Google Calendar) =====
+function getFilteredMeetings() {
+  const startMonth = document.getElementById('filterStart').value;
+  const endMonth = document.getElementById('filterEnd').value;
+  if (typeof CALENDAR_DATA === 'undefined') return [];
+  return CALENDAR_DATA.filter(m => {
+    if (m.month < startMonth || m.month > endMonth) return false;
+    if (selectedUser && m.user !== selectedUser) return false;
+    return true;
+  });
+}
+
+function renderMeetingsTab() {
+  const meetings = getFilteredMeetings();
+  renderMeetingsKPIs(meetings);
+  renderMeetingsTypeChart(meetings);
+  renderMeetingsMonthlyChart(meetings);
+  renderMeetingsTableOnly();
+  renderMeetingsConsultantMonthlyChart(meetings);
+}
+
+function renderMeetingsKPIs(meetings) {
+  const totalH = meetings.reduce((s, m) => s + m.hours, 0);
+  const intH = meetings.filter(m => m.type === 'internal').reduce((s, m) => s + m.hours, 0);
+  const extH = meetings.filter(m => m.type === 'external').reduce((s, m) => s + m.hours, 0);
+  const months = new Set(meetings.map(m => m.month));
+  const consultants = new Set(meetings.map(m => m.user));
+  const avgPerConsultantMonth = (consultants.size > 0 && months.size > 0) ? totalH / consultants.size / months.size : 0;
+  const avgDuration = meetings.length > 0 ? totalH / meetings.length : 0;
+  const intPct = totalH > 0 ? intH / totalH * 100 : 0;
+
+  document.getElementById('meetingsKpis').innerHTML = `
+    <div class="kpi-card">
+      <div class="kpi-label">Heures de réunion</div>
+      <div class="kpi-value accent">${totalH.toFixed(0)}h</div>
+      <div class="kpi-sub">${meetings.length} réunions</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Internes</div>
+      <div class="kpi-value" style="color:#3b82f6">${intH.toFixed(0)}h</div>
+      <div class="kpi-sub">${intPct.toFixed(0)}% du total</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Externes</div>
+      <div class="kpi-value" style="color:#f59e0b">${extH.toFixed(0)}h</div>
+      <div class="kpi-sub">${(100 - intPct).toFixed(0)}% du total</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Moy. / consultant / mois</div>
+      <div class="kpi-value">${avgPerConsultantMonth.toFixed(0)}h</div>
+      <div class="kpi-sub">${consultants.size} consultants, ${months.size} mois</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Durée moyenne</div>
+      <div class="kpi-value">${(avgDuration * 60).toFixed(0)}min</div>
+      <div class="kpi-sub">${avgDuration.toFixed(2)}h par réunion</div>
+    </div>
+  `;
+}
+
+function renderMeetingsTypeChart(meetings) {
+  if (charts.meetingsType) { charts.meetingsType.destroy(); charts.meetingsType = null; }
+  if (meetings.length === 0) return;
+
+  const intH = round1(meetings.filter(m => m.type === 'internal').reduce((s, m) => s + m.hours, 0));
+  const extH = round1(meetings.filter(m => m.type === 'external').reduce((s, m) => s + m.hours, 0));
+  const total = intH + extH;
+
+  charts.meetingsType = new Chart(document.getElementById('chartMeetingsType'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Internes', 'Externes'],
+      datasets: [{ data: [intH, extH], backgroundColor: ['#3b82f6', '#f59e0b'], borderWidth: 0 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'right', labels: { color: '#8b8d98', font: { size: 12 }, padding: 12, boxWidth: 14 } },
+        tooltip: { callbacks: { label: ctx => ctx.label + ': ' + ctx.parsed + 'h (' + (ctx.parsed / total * 100).toFixed(1) + '%)' } }
+      }
+    }
+  });
+}
+
+function renderMeetingsMonthlyChart(meetings) {
+  if (charts.meetingsMonthly) { charts.meetingsMonthly.destroy(); charts.meetingsMonthly = null; }
+  if (meetings.length === 0) return;
+
+  const byMonth = {};
+  meetings.forEach(m => {
+    if (!byMonth[m.month]) byMonth[m.month] = { internal: 0, external: 0 };
+    byMonth[m.month][m.type] += m.hours;
+  });
+  const months = Object.keys(byMonth).sort();
+  const intValues = months.map(m => round1(byMonth[m].internal));
+  const extValues = months.map(m => round1(byMonth[m].external));
+
+  const datasets = [
+    { label: 'Internes', data: intValues, backgroundColor: 'rgba(59,130,246,0.7)', borderRadius: 4, borderSkipped: false },
+    { label: 'Externes', data: extValues, backgroundColor: 'rgba(245,158,11,0.7)', borderRadius: 4, borderSkipped: false }
+  ];
+
+  // Capacity line when single consultant selected
+  if (selectedUser) {
+    const capas = months.map(m => round1(capaciteMois(m) * 0.2));
+    datasets.push({
+      label: '20% capacité',
+      data: capas,
+      type: 'line', borderColor: '#ef4444', borderDash: [4, 4], pointRadius: 0, borderWidth: 2, fill: false
+    });
+  }
+
+  charts.meetingsMonthly = new Chart(document.getElementById('chartMeetingsMonthly'), {
+    type: 'bar',
+    data: { labels: months.map(fmtMonth), datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: {
+        x: { stacked: true, grid: { display: false }, ticks: { color: '#8b8d98' } },
+        y: { stacked: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#8b8d98', callback: v => v + 'h' } }
+      },
+      plugins: {
+        legend: { labels: { color: '#8b8d98', font: { size: 11 }, boxWidth: 12, padding: 12 } },
+        tooltip: {
+          mode: 'index', intersect: false,
+          callbacks: {
+            label: ctx => ' ' + ctx.dataset.label + ': ' + ctx.parsed.y + 'h',
+            footer: items => {
+              const total = items.reduce((s, i) => s + i.parsed.y, 0);
+              return 'Total: ' + round1(total) + 'h';
+            }
+          },
+          footerFont: { weight: 'bold' }
+        }
+      }
+    }
+  });
+}
+
+function renderMeetingsTableOnly() {
+  const meetings = getFilteredMeetings();
+  const byUser = {};
+  meetings.forEach(m => {
+    if (!byUser[m.user]) byUser[m.user] = { internalH: 0, externalH: 0, internal: 0, external: 0 };
+    byUser[m.user][m.type + 'H'] += m.hours;
+    byUser[m.user][m.type]++;
+  });
+
+  let rows = Object.entries(byUser).map(([consultant, d]) => ({
+    consultant,
+    totalH: d.internalH + d.externalH,
+    internalH: d.internalH,
+    externalH: d.externalH,
+    count: d.internal + d.external,
+    avgDuration: (d.internal + d.external) > 0 ? (d.internalH + d.externalH) / (d.internal + d.external) : 0,
+    internalPct: (d.internalH + d.externalH) > 0 ? d.internalH / (d.internalH + d.externalH) * 100 : 0
+  }));
+
+  const sort = sortState.meetingsTable || { col: 'totalH', dir: 'desc' };
+  rows.sort((a, b) => {
+    const va = a[sort.col], vb = b[sort.col];
+    const cmp = typeof va === 'string' ? va.localeCompare(vb) : va - vb;
+    return sort.dir === 'asc' ? cmp : -cmp;
+  });
+
+  const maxH = Math.max(...rows.map(r => r.totalH), 1);
+  document.querySelector('#meetingsTable tbody').innerHTML = rows.map(r => `<tr>
+    <td><strong>${esc(r.consultant)}</strong></td>
+    <td><strong>${r.totalH.toFixed(0)}h</strong></td>
+    <td style="color:#3b82f6">${r.internalH.toFixed(0)}h</td>
+    <td style="color:#f59e0b">${r.externalH.toFixed(0)}h</td>
+    <td>${r.count}</td>
+    <td>${(r.avgDuration * 60).toFixed(0)}min</td>
+    <td>${r.internalPct.toFixed(0)}%</td>
+    <td>
+      <div class="mini-bar" style="display:flex;gap:0">
+        <div style="height:6px;border-radius:3px 0 0 3px;background:#3b82f6;width:${r.internalH/maxH*100}%"></div>
+        <div style="height:6px;border-radius:0 3px 3px 0;background:#f59e0b;width:${r.externalH/maxH*100}%"></div>
+      </div>
+    </td>
+  </tr>`).join('');
+
+  updateSortIndicators('meetingsTable', sort);
+}
+
+function renderMeetingsConsultantMonthlyChart(meetings) {
+  if (charts.meetingsConsultantMonthly) { charts.meetingsConsultantMonthly.destroy(); charts.meetingsConsultantMonthly = null; }
+  if (meetings.length === 0) return;
+
+  const byUM = {};
+  const allMonths = new Set();
+  meetings.forEach(m => {
+    if (!byUM[m.user]) byUM[m.user] = {};
+    byUM[m.user][m.month] = (byUM[m.user][m.month] || 0) + m.hours;
+    allMonths.add(m.month);
+  });
+  const months = [...allMonths].sort();
+  const users = Object.entries(byUM)
+    .map(([u, m]) => [u, Object.values(m).reduce((a, b) => a + b, 0)])
+    .sort((a, b) => b[1] - a[1])
+    .map(([u]) => u);
+
+  const datasets = users.map((u, i) => ({
+    label: u,
+    data: months.map(m => round1(byUM[u][m] || 0)),
+    backgroundColor: COLORS[i % COLORS.length],
+    borderRadius: 2, borderSkipped: false
+  }));
+
+  charts.meetingsConsultantMonthly = new Chart(document.getElementById('chartMeetingsConsultantMonthly'), {
+    type: 'bar',
+    data: { labels: months.map(fmtMonth), datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: {
+        x: { stacked: true, grid: { display: false }, ticks: { color: '#8b8d98' } },
+        y: { stacked: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#8b8d98', callback: v => v + 'h' } }
+      },
+      plugins: {
+        legend: { position: 'bottom', labels: { color: '#8b8d98', font: { size: 10 }, padding: 8, boxWidth: 10 } },
+        tooltip: {
+          mode: 'index', intersect: false,
+          itemSort: (a, b) => b.parsed.y - a.parsed.y,
+          filter: item => item.parsed.y > 0,
+          callbacks: {
+            label: ctx => ' ' + ctx.dataset.label + ': ' + ctx.parsed.y + 'h',
+            footer: items => 'Total: ' + round1(items.reduce((s, i) => s + i.parsed.y, 0)) + 'h'
+          },
+          footerFont: { weight: 'bold' }
+        }
+      }
+    }
+  });
 }
 
 function renderPrestaTrackingTable(projData, budgetData) {
