@@ -246,6 +246,7 @@
     <button class="tab-btn" data-tab="categories">Catégories</button>
     <button class="tab-btn" data-tab="projects">Projets</button>
     <button class="tab-btn" data-tab="timeline">Timeline</button>
+    <button class="tab-btn" data-tab="consultants">Consultants</button>
     <button class="tab-btn" data-tab="detail">Détail tâches</button>
   </div>
 
@@ -377,6 +378,61 @@
     <div class="kpi-grid" id="timelineKpis"></div>
   </div>
 
+  <!-- TAB: Consultants -->
+  <div id="panel-consultants" class="tab-panel">
+    <!-- List view -->
+    <div id="consultantListView">
+      <div class="table-card">
+        <h3>Performance par consultant</h3>
+        <table id="consultantTable">
+          <thead><tr>
+            <th data-sort="consultant">Consultant</th>
+            <th data-sort="hours">Estimé</th>
+            <th data-sort="spent">Tracké</th>
+            <th data-sort="tasks">Tâches</th>
+            <th data-sort="closedPct">Fermées</th>
+            <th data-sort="topCategory">Catégorie principale</th>
+            <th>Répartition</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+    <!-- Detail view -->
+    <div id="consultantDetailView" style="display:none">
+      <div class="project-detail-header">
+        <button class="btn-back" onclick="clearConsultantSelection()">&larr; Tous les consultants</button>
+        <h2 id="consultantDetailTitle"></h2>
+      </div>
+      <div class="kpi-grid" id="consultantDetailKpis"></div>
+      <div class="charts-grid">
+        <div class="chart-card">
+          <h3>Répartition par catégorie (temps estimé)</h3>
+          <div class="chart-container h300"><canvas id="chartConsultantCategory"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <h3>Estimé vs Tracké par mois</h3>
+          <div class="chart-container h300"><canvas id="chartConsultantMonthly"></canvas></div>
+        </div>
+      </div>
+      <div class="table-card">
+        <h3>Performance par catégorie</h3>
+        <table id="consultantCategoryTable">
+          <thead><tr>
+            <th data-sort="category">Catégorie</th>
+            <th data-sort="hours">Estimé</th>
+            <th data-sort="spent">Tracké</th>
+            <th data-sort="tasks">Tâches</th>
+            <th data-sort="closedPct">Fermées</th>
+            <th data-sort="pct">% du temps</th>
+            <th>Répartition</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
   <!-- TAB: Detail -->
   <div id="panel-detail" class="tab-panel">
     <div class="table-card">
@@ -410,6 +466,7 @@
 let FILTERED = [];
 let selectedUser = '';
 let selectedProject = '';
+let selectedConsultant = '';
 let sortState = {};
 let detailPage = 0;
 const PAGE_SIZE = 50;
@@ -448,6 +505,9 @@ function renderCurrentTab(tab) {
   if (tab === 'categories') { renderCategoryTable(); }
   if (tab === 'projects') {
     if (selectedProject) { renderProjectDetailView(); } else { renderProjectListView(); }
+  }
+  if (tab === 'consultants') {
+    if (selectedConsultant) { renderConsultantDetailView(); } else { renderConsultantListView(); }
   }
   if (tab === 'timeline') { renderWeeklyChart(); renderDailyChart(); renderTimelineKPIs(); }
   if (tab === 'detail') { renderDetailTable(); }
@@ -507,6 +567,7 @@ function initFilters() {
   });
   document.getElementById('filterUser').addEventListener('change', function() {
     selectedUser = this.value;
+    selectedConsultant = this.value;
     if (selectedUser) {
       const userMonths = [...new Set(RAW_DATA.filter(e => e.user === selectedUser).map(e => e.month))].sort();
       if (userMonths.length > 0) {
@@ -687,7 +748,20 @@ function renderCategoryMonthlyChart() {
       },
       plugins: {
         legend: { position: 'bottom', labels: { color: '#8b8d98', font: { size: 10 }, padding: 8, boxWidth: 10 } },
-        tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': ' + ctx.parsed.y + 'h' } }
+        tooltip: {
+          mode: 'index',
+          intersect: false,
+          itemSort: (a, b) => b.parsed.y - a.parsed.y,
+          filter: item => item.parsed.y > 0,
+          callbacks: {
+            label: ctx => ' ' + ctx.dataset.label + ': ' + ctx.parsed.y + 'h',
+            footer: items => {
+              const total = items.reduce((s, i) => s + i.parsed.y, 0);
+              return 'Total: ' + round1(total) + 'h';
+            }
+          },
+          footerFont: { weight: 'bold' }
+        }
       }
     }
   });
@@ -779,7 +853,10 @@ function renderMonthlyChart() {
     { label: 'Moyenne', data: Array(months.length).fill(Math.round(avg)), type: 'line', borderColor: '#f59e0b', borderDash: [6, 4], pointRadius: 0, borderWidth: 2, fill: false }
   ];
 
-  if (selectedUser) {
+  // Show capacity lines only when filtering by user alone (no category/project filter)
+  const activeCategory = document.getElementById('filterCategory').value;
+  const activeFilters = [selectedUser, activeCategory, selectedProject].filter(Boolean).length;
+  if (selectedUser && activeFilters < 2) {
     datasets.push({
       label: 'Objectif 80%',
       data: obj80,
@@ -1085,6 +1162,11 @@ function renderDetailTable() {
 
 // ===== TABLE SORTING =====
 document.addEventListener('click', function(e) {
+  const consultantRow = e.target.closest('tr.clickable-row[data-consultant]');
+  if (consultantRow && !e.target.closest('th')) {
+    selectConsultant(consultantRow.dataset.consultant);
+    return;
+  }
   const clickableRow = e.target.closest('tr.clickable-row[data-project]');
   if (clickableRow && !e.target.closest('th')) {
     selectProject(clickableRow.dataset.project);
@@ -1099,6 +1181,8 @@ document.addEventListener('click', function(e) {
   if (tableId === 'categoryTable') renderCategoryTable();
   if (tableId === 'projectTable') renderProjectTable();
   if (tableId === 'projectDetailTable') renderProjectDetailTable(FILTERED);
+  if (tableId === 'consultantTable') renderConsultantTable();
+  if (tableId === 'consultantCategoryTable') renderConsultantCategoryTable(FILTERED);
   if (tableId === 'detailTable') { detailPage = 0; renderDetailTable(); }
 });
 
@@ -1359,6 +1443,231 @@ function elapsedMonths(dateDebut, dateFin) {
   return { elapsed, total: totalMonths };
 }
 
+// ===== CONSULTANT SELECTION =====
+function selectConsultant(name) {
+  selectedConsultant = name;
+  selectedUser = name;
+  document.getElementById('filterUser').value = name;
+  // Adjust date range to consultant's activity
+  const userMonths = [...new Set(RAW_DATA.filter(e => e.user === name).map(e => e.month))].sort();
+  if (userMonths.length > 0) {
+    document.getElementById('filterStart').value = userMonths[0];
+    document.getElementById('filterEnd').value = userMonths[userMonths.length - 1];
+  }
+  applyFilters();
+  const tab = document.querySelector('.tab-btn[data-tab="consultants"]');
+  if (tab && !tab.classList.contains('active')) tab.click();
+}
+
+function clearConsultantSelection() {
+  selectedConsultant = '';
+  selectedUser = '';
+  document.getElementById('filterUser').value = '';
+  // Reset date range to full
+  const allMonths = [...new Set(RAW_DATA.map(e => e.month))].sort();
+  document.getElementById('filterStart').value = allMonths[0];
+  document.getElementById('filterEnd').value = allMonths[allMonths.length - 1];
+  applyFilters();
+}
+
+function renderConsultantListView() {
+  document.getElementById('consultantListView').style.display = '';
+  document.getElementById('consultantDetailView').style.display = 'none';
+  renderConsultantTable();
+}
+
+function renderConsultantDetailView() {
+  document.getElementById('consultantListView').style.display = 'none';
+  document.getElementById('consultantDetailView').style.display = '';
+  document.getElementById('consultantDetailTitle').textContent = selectedConsultant;
+
+  const data = FILTERED; // already filtered to selectedConsultant
+
+  // KPIs
+  const totalEst = data.reduce((s, e) => s + e.hours, 0);
+  const totalTracked = data.reduce((s, e) => s + (e.spent_hours || 0), 0);
+  const projects = new Set(data.map(e => e.project)).size;
+  const closedCount = data.filter(e => e.closed).length;
+  const closedPct = data.length > 0 ? (closedCount / data.length * 100) : 0;
+
+  document.getElementById('consultantDetailKpis').innerHTML = `
+    <div class="kpi-card">
+      <div class="kpi-label">Heures estimées</div>
+      <div class="kpi-value accent">${totalEst.toFixed(0)}h</div>
+      <div class="kpi-sub">${data.length} tâches</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Heures trackées</div>
+      <div class="kpi-value">${totalTracked.toFixed(0)}h</div>
+      <div class="kpi-sub">${totalTracked > 0 ? (totalTracked / totalEst * 100).toFixed(0) + "% de l'estimé" : 'non renseigné'}</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Projets actifs</div>
+      <div class="kpi-value">${projects}</div>
+      <div class="kpi-sub">${(totalEst / (projects || 1)).toFixed(0)}h moy/projet</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Taux complétion</div>
+      <div class="kpi-value ${closedPct > 70 ? 'green' : 'orange'}">${closedPct.toFixed(0)}%</div>
+      <div class="kpi-sub">${closedCount}/${data.length} fermées</div>
+    </div>
+  `;
+
+  renderConsultantCategoryChart(data);
+  renderConsultantMonthlyChart(data);
+  renderConsultantCategoryTable(data);
+}
+
+function renderConsultantTable() {
+  const byUser = {};
+  FILTERED.forEach(e => {
+    if (!byUser[e.user]) byUser[e.user] = { hours: 0, spent: 0, tasks: 0, closed: 0, cats: {} };
+    byUser[e.user].hours += e.hours;
+    byUser[e.user].spent += (e.spent_hours || 0);
+    byUser[e.user].tasks++;
+    if (e.closed) byUser[e.user].closed++;
+    byUser[e.user].cats[e.category] = (byUser[e.user].cats[e.category] || 0) + e.hours;
+  });
+
+  const totalH = FILTERED.reduce((s, e) => s + e.hours, 0);
+  let rows = Object.entries(byUser).map(([consultant, d]) => {
+    const topCat = Object.entries(d.cats).sort((a, b) => b[1] - a[1])[0];
+    return {
+      consultant, hours: d.hours, spent: d.spent, tasks: d.tasks,
+      closedPct: d.tasks > 0 ? d.closed / d.tasks * 100 : 0,
+      topCategory: topCat ? topCat[0] : '',
+      topCategoryPct: topCat && d.hours > 0 ? topCat[1] / d.hours * 100 : 0,
+      pct: totalH > 0 ? d.hours / totalH * 100 : 0
+    };
+  });
+
+  const sort = sortState.consultantTable || { col: 'hours', dir: 'desc' };
+  rows.sort((a, b) => {
+    const va = a[sort.col], vb = b[sort.col];
+    const cmp = typeof va === 'string' ? va.localeCompare(vb) : va - vb;
+    return sort.dir === 'asc' ? cmp : -cmp;
+  });
+
+  const maxH = Math.max(...rows.map(r => r.hours), 1);
+  document.querySelector('#consultantTable tbody').innerHTML = rows.map(r => `<tr class="clickable-row" data-consultant="${esc(r.consultant)}">
+    <td><strong>${esc(r.consultant)}</strong></td>
+    <td><strong>${r.hours.toFixed(1)}h</strong></td>
+    <td>${r.spent.toFixed(1)}h</td>
+    <td>${r.tasks}</td>
+    <td><span class="badge ${r.closedPct > 70 ? 'badge-closed' : 'badge-open'}">${r.closedPct.toFixed(0)}%</span></td>
+    <td><span style="color:${getCategoryColor(r.topCategory)}">${esc(r.topCategory)}</span> <span style="color:var(--text-dim);font-size:11px">${r.topCategoryPct.toFixed(0)}%</span></td>
+    <td><div class="mini-bar"><div class="mini-bar-fill" style="width:${r.hours/maxH*100}%"></div></div></td>
+  </tr>`).join('');
+
+  updateSortIndicators('consultantTable', sort);
+}
+
+function renderConsultantCategoryChart(data) {
+  if (charts.consultantCategory) { charts.consultantCategory.destroy(); charts.consultantCategory = null; }
+  if (data.length === 0) return;
+
+  const byCat = {};
+  data.forEach(e => { byCat[e.category] = (byCat[e.category] || 0) + e.hours; });
+  const sorted = Object.entries(byCat).sort((a, b) => b[1] - a[1]);
+  const labels = sorted.map(([c]) => c);
+  const values = sorted.map(([, h]) => round1(h));
+  const colors = sorted.map(([c]) => getCategoryColor(c));
+  const total = values.reduce((a, b) => a + b, 0);
+
+  charts.consultantCategory = new Chart(document.getElementById('chartConsultantCategory'), {
+    type: 'doughnut',
+    data: { labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 0 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'right', labels: { color: '#8b8d98', font: { size: 11 }, padding: 6, boxWidth: 12 } },
+        tooltip: { callbacks: { label: ctx => ctx.label + ': ' + ctx.parsed + 'h (' + (ctx.parsed / total * 100).toFixed(1) + '%)' } }
+      }
+    }
+  });
+}
+
+function renderConsultantMonthlyChart(data) {
+  if (charts.consultantMonthly) { charts.consultantMonthly.destroy(); charts.consultantMonthly = null; }
+  if (data.length === 0) return;
+
+  const byMonthEst = {};
+  const byMonthSpent = {};
+  data.forEach(e => {
+    byMonthEst[e.month] = (byMonthEst[e.month] || 0) + e.hours;
+    byMonthSpent[e.month] = (byMonthSpent[e.month] || 0) + (e.spent_hours || 0);
+  });
+  const months = [...new Set([...Object.keys(byMonthEst), ...Object.keys(byMonthSpent)])].sort();
+  const estValues = months.map(m => round1(byMonthEst[m] || 0));
+  const spentValues = months.map(m => round1(byMonthSpent[m] || 0));
+  const capas = months.map(m => capaciteMois(m));
+  const obj80 = capas.map(c => round1(c * 0.8));
+
+  const datasets = [
+    { label: 'Estimé', data: estValues, backgroundColor: 'rgba(99,102,241,0.7)', borderRadius: 6, borderSkipped: false },
+    { label: 'Tracké', data: spentValues, backgroundColor: 'rgba(34,197,94,0.5)', borderRadius: 6, borderSkipped: false },
+  ];
+  // Show capacity lines only when no category/project filter is active
+  const cActiveCategory = document.getElementById('filterCategory').value;
+  const cActiveFilters = [selectedUser, cActiveCategory, selectedProject].filter(Boolean).length;
+  if (cActiveFilters < 2) {
+    datasets.push(
+      { label: 'Objectif 80%', data: obj80, type: 'line', borderColor: '#22c55e', borderDash: [6, 4], pointRadius: 0, borderWidth: 2, fill: false },
+      { label: 'Capacité 35h/sem', data: capas, type: 'line', borderColor: '#ef4444', borderDash: [2, 3], pointRadius: 0, borderWidth: 2, fill: false }
+    );
+  }
+
+  charts.consultantMonthly = new Chart(document.getElementById('chartConsultantMonthly'), {
+    type: 'bar',
+    data: { labels: months.map(fmtMonth), datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: {
+        x: { grid: { display: false }, ticks: { color: '#8b8d98' } },
+        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#8b8d98', callback: v => v + 'h' } }
+      },
+      plugins: {
+        legend: { labels: { color: '#8b8d98', font: { size: 11 }, boxWidth: 12, padding: 12 } },
+        tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': ' + ctx.parsed.y + 'h' } }
+      }
+    }
+  });
+}
+
+function renderConsultantCategoryTable(data) {
+  const byCat = {};
+  data.forEach(e => {
+    if (!byCat[e.category]) byCat[e.category] = { hours: 0, spent: 0, tasks: 0, closed: 0 };
+    byCat[e.category].hours += e.hours;
+    byCat[e.category].spent += (e.spent_hours || 0);
+    byCat[e.category].tasks++;
+    if (e.closed) byCat[e.category].closed++;
+  });
+  const totalH = data.reduce((s, e) => s + e.hours, 0);
+  let rows = Object.entries(byCat).map(([category, d]) => ({
+    category, hours: d.hours, spent: d.spent,
+    pct: totalH > 0 ? d.hours / totalH * 100 : 0,
+    tasks: d.tasks, closedPct: d.tasks > 0 ? d.closed / d.tasks * 100 : 0
+  }));
+  const sort = sortState.consultantCategoryTable || { col: 'hours', dir: 'desc' };
+  rows.sort((a, b) => {
+    const va = a[sort.col], vb = b[sort.col];
+    const cmp = typeof va === 'string' ? va.localeCompare(vb) : va - vb;
+    return sort.dir === 'asc' ? cmp : -cmp;
+  });
+  const maxH = Math.max(...rows.map(r => r.hours), 1);
+  document.querySelector('#consultantCategoryTable tbody').innerHTML = rows.map(r => `<tr>
+    <td><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${getCategoryColor(r.category)};margin-right:8px;vertical-align:middle"></span>${esc(r.category)}</td>
+    <td><strong>${r.hours.toFixed(1)}h</strong></td>
+    <td>${r.spent.toFixed(1)}h</td>
+    <td>${r.tasks}</td>
+    <td><span class="badge ${r.closedPct > 70 ? 'badge-closed' : 'badge-open'}">${r.closedPct.toFixed(0)}%</span></td>
+    <td>${r.pct.toFixed(1)}%</td>
+    <td><div class="mini-bar"><div class="mini-bar-fill" style="width:${r.hours/maxH*100}%;background:${getCategoryColor(r.category)}"></div></div></td>
+  </tr>`).join('');
+  updateSortIndicators('consultantCategoryTable', sort);
+}
+
 function renderPrestaTrackingTable(projData, budgetData) {
   const el = document.getElementById('projectDetailPrestaTable');
   if (!budgetData || !budgetData.prestations || budgetData.prestations.length === 0) {
@@ -1386,11 +1695,19 @@ function renderPrestaTrackingTable(projData, budgetData) {
     const tjmEffectif = actual.tracked > 0 ? (p.budget / (actual.tracked / 7)) : 0;
 
     // Expected consumption to date
+    // Parse cadence from prestation name (e.g. "3J/mois", "2j/mois", "0.5J/mois")
+    const cadenceMatch = p.list_name.match(/(\d+(?:[.,]\d+)?)\s*[jJ]\s*\/\s*mois/i);
     const em = elapsedMonths(p.date_debut, p.date_fin);
     let attenduJ = null;
     let attenduH = null;
     let cadenceJ = null;
-    if (em && em.total && p.temps_vendu_jours > 0) {
+    if (cadenceMatch) {
+      cadenceJ = parseFloat(cadenceMatch[1].replace(',', '.'));
+      if (em && em.elapsed != null) {
+        attenduJ = cadenceJ * em.elapsed;
+        attenduH = attenduJ * 7;
+      }
+    } else if (em && em.total && p.temps_vendu_jours > 0) {
       cadenceJ = p.temps_vendu_jours / em.total;
       attenduJ = cadenceJ * em.elapsed;
       attenduH = attenduJ * 7;

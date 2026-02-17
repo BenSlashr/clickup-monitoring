@@ -28,35 +28,150 @@ HEADERS = {
 MS_PER_HOUR = 3_600_000
 
 
-def fetch_all_tasks():
+def fetch_paginated(url, params_base, label=""):
+    """Fetch all pages from a ClickUp paginated endpoint."""
     all_tasks = []
     page = 0
-    url = f"{BASE_URL}/team/{TEAM_ID}/task"
-
     while True:
-        params = {
-            "include_closed": "true",
-            "subtasks": "true",
-            "page": page,
-        }
-
+        params = {**params_base, "page": page}
         resp = requests.get(url, headers=HEADERS, params=params)
         resp.raise_for_status()
-        data = resp.json()
-
-        tasks = data.get("tasks", [])
+        tasks = resp.json().get("tasks", [])
         all_tasks.extend(tasks)
-
-        if page % 5 == 0:
-            print(f"  Page {page}: fetched {len(tasks)} tasks (total so far: {len(all_tasks)})")
-
         if len(tasks) < 100:
-            print(f"  Last page reached (page {page}, {len(tasks)} tasks). Done.")
             break
-
         page += 1
         time.sleep(0.1)
+    if all_tasks and label:
+        print(f"    {label}: {len(all_tasks)} tasks")
+    return all_tasks
 
+
+def fetch_lists_tasks(lists, base_params, seen_ids, all_tasks):
+    """Fetch tasks from a list of ClickUp lists, dedup by seen_ids."""
+    for lst in lists:
+        tasks = fetch_paginated(
+            f"{BASE_URL}/list/{lst['id']}/task",
+            base_params,
+        )
+        new_tasks = [t for t in tasks if t["id"] not in seen_ids]
+        all_tasks.extend(new_tasks)
+        seen_ids.update(t["id"] for t in new_tasks)
+
+
+def fetch_all_lists_in_folder(folder_id):
+    """Get all lists (archived + non-archived) in a folder."""
+    all_lists = []
+    for archived_flag in ["false", "true"]:
+        resp = requests.get(
+            f"{BASE_URL}/folder/{folder_id}/list",
+            headers=HEADERS, params={"archived": archived_flag},
+        )
+        resp.raise_for_status()
+        all_lists.extend(resp.json().get("lists", []))
+    return all_lists
+
+
+def fetch_all_folders_in_space(space_id):
+    """Get all folders (archived + non-archived) in a space."""
+    all_folders = []
+    for archived_flag in ["false", "true"]:
+        resp = requests.get(
+            f"{BASE_URL}/space/{space_id}/folder",
+            headers=HEADERS, params={"archived": archived_flag},
+        )
+        resp.raise_for_status()
+        all_folders.extend(resp.json().get("folders", []))
+    return all_folders
+
+
+def fetch_folderless_lists(space_id):
+    """Get folderless lists (archived + non-archived) directly under a space."""
+    all_lists = []
+    for archived_flag in ["false", "true"]:
+        resp = requests.get(
+            f"{BASE_URL}/space/{space_id}/list",
+            headers=HEADERS, params={"archived": archived_flag},
+        )
+        resp.raise_for_status()
+        all_lists.extend(resp.json().get("lists", []))
+    return all_lists
+
+
+def fetch_all_tasks():
+    base_params = {"include_closed": "true", "subtasks": "true"}
+
+    # 1) Active tasks from workspace endpoint
+    print("  Fetching active workspace tasks...")
+    all_tasks = fetch_paginated(
+        f"{BASE_URL}/team/{TEAM_ID}/task",
+        {**base_params, "include_archived": "true"},
+        label="Active workspace",
+    )
+    seen_ids = {t["id"] for t in all_tasks}
+    before = len(all_tasks)
+    print(f"    Total: {len(all_tasks)} tasks")
+
+    # 2) Deep crawl of active spaces (archived folders, archived lists, folderless lists)
+    print("  Deep-crawling active spaces...")
+    resp = requests.get(
+        f"{BASE_URL}/team/{TEAM_ID}/space",
+        headers=HEADERS, params={"archived": "false"},
+    )
+    resp.raise_for_status()
+    active_spaces = resp.json().get("spaces", [])
+
+    for space in active_spaces:
+        space_before = len(all_tasks)
+
+        # 2a) All folders (archived + non-archived) -> all lists (archived + non-archived)
+        folders = fetch_all_folders_in_space(space["id"])
+        for folder in folders:
+            lists = fetch_all_lists_in_folder(folder["id"])
+            fetch_lists_tasks(lists, base_params, seen_ids, all_tasks)
+            time.sleep(0.05)
+
+        # 2b) Folderless lists (directly under space)
+        folderless = fetch_folderless_lists(space["id"])
+        fetch_lists_tasks(folderless, base_params, seen_ids, all_tasks)
+
+        new_count = len(all_tasks) - space_before
+        if new_count > 0:
+            print(f"    Space '{space['name']}': +{new_count} new tasks")
+        time.sleep(0.05)
+
+    print(f"    Active spaces: +{len(all_tasks) - before} new tasks")
+    before = len(all_tasks)
+
+    # 3) Deep crawl of archived spaces
+    print("  Deep-crawling archived spaces...")
+    resp4 = requests.get(
+        f"{BASE_URL}/team/{TEAM_ID}/space",
+        headers=HEADERS, params={"archived": "true"},
+    )
+    resp4.raise_for_status()
+    for space in resp4.json().get("spaces", []):
+        space_before = len(all_tasks)
+
+        # 3a) All folders -> all lists
+        folders = fetch_all_folders_in_space(space["id"])
+        for folder in folders:
+            lists = fetch_all_lists_in_folder(folder["id"])
+            fetch_lists_tasks(lists, base_params, seen_ids, all_tasks)
+            time.sleep(0.05)
+
+        # 3b) Folderless lists
+        folderless = fetch_folderless_lists(space["id"])
+        fetch_lists_tasks(folderless, base_params, seen_ids, all_tasks)
+
+        new_count = len(all_tasks) - space_before
+        if new_count > 0:
+            print(f"    Archived space '{space['name']}': +{new_count} new tasks")
+        time.sleep(0.05)
+
+    print(f"    Archived spaces: +{len(all_tasks) - before} new tasks")
+
+    print(f"  Total tasks: {len(all_tasks)}")
     return all_tasks
 
 
@@ -102,6 +217,8 @@ def extract_task_fields(task):
         "time_spent": task.get("time_spent") or 0,
         "assignees": assignees,
         "status": status_obj.get("status") if isinstance(status_obj, dict) else str(status_obj),
+        "due_date": task.get("due_date"),
+        "start_date": task.get("start_date"),
         "date_created": task.get("date_created"),
         "date_updated": task.get("date_updated"),
         "date_closed": task.get("date_closed"),

@@ -41,10 +41,10 @@ def ms_to_date(ms_str):
 
 def best_date(task):
     """Pick the most relevant date for a task's time allocation.
-    Priority: due_date (planned work date) > start_date > date_created.
-    This matches ClickUp's own time estimate reporting.
+    Priority: due_date > start_date. Skip date_created to match
+    ClickUp's planning views (only tasks with scheduled dates).
     """
-    for field in ["due_date", "start_date", "date_created"]:
+    for field in ["due_date", "start_date"]:
         info = ms_to_date(task.get(field))
         if info:
             return info
@@ -110,7 +110,9 @@ def categorize(task):
     ]):
         return "Etude lexicale"
 
-    # 6. Audit
+    # 6. Audit (but not "restitution" which is a meeting)
+    if "restitution" in name:
+        return "Reunion / Call / Email"
     if any(k in combined for k in ["audit"]):
         return "Audit"
 
